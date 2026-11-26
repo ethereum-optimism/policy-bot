@@ -1,0 +1,22 @@
+name: Build images
+
+on:
+  push:
+    branches:
+      - oplabs
+    tags:
+      - 'policy-bot/v*'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-images:
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ethereum-optimism/factory/.github/workflows/build-images.yaml@10b9826b174192cef1c05f244155f6f8012d9e0f

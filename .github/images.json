@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "registry": "us-docker.pkg.dev/oplabs-tools-artifacts/images",
+  "release": {
+    "publish_tag": "${version}"
+  },
+  "shared_paths": [
+    ".github/images.json",
+    ".github/workflows/build-images.yaml"
+  ],
+  "images": {
+    "policy-bot": {
+      "builders": {
+        "docker": {
+          "context": ".",
+          "dockerfile": ".github/fork/Dockerfile"
+        }
+      },
+      "paths": [
+        ".github/fork/Dockerfile",
+        "cmd/**",
+        "config/**",
+        "docker/**",
+        "go.mod",
+        "go.sum",
+        "main.go",
+        "package.json",
+        "policy/**",
+        "postcss.config.js",
+        "pull/**",
+        "server/**",
+        "tailwind.config.js",
+        "vendor/**",
+        "version/**",
+        "webpack.config.js",
+        "yarn.lock"
+      ],
+      "smoke": {
+        "commands": [
+          "/usr/local/bin/policy-bot --help"
+        ]
+      }
+    }
+  }
+}

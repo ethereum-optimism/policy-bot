@@ -1,0 +1,9 @@
+^\.github/fork/
+^\.github/images\.json$
+^\.github/workflows/(build-images|fork-ci)\.yaml$
+^README\.md$
+^config/policy-bot\.example\.yml$
+^go\.(mod|sum)$
+^server/(config|server)\.go$
+^server/kms_signer(_test)?\.go$
+^vendor/

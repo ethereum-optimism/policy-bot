@@ -1,0 +1,52 @@
+name: Fork CI
+
+on:
+  push:
+    branches:
+      - oplabs
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  history:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check history against the upstream release
+        env:
+          UPSTREAM_REPOSITORY_URL: https://github.com/palantir/policy-bot
+        run: .github/fork/check-history.sh
+
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Check vendored modules
+        run: |
+          go mod verify
+          go mod vendor
+          git diff --exit-code -- go.mod go.sum vendor
+          test -z "$(git status --porcelain -- vendor)"
+
+      - name: Run upstream verification
+        run: ./godelw verify --apply=false
