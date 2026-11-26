@@ -21,7 +21,7 @@ RUN go build -trimpath -ldflags "-s -w -X github.com/palantir/policy-bot/version
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 COPY docker/mime.types /etc/mime.types
-COPY config/policy-bot.example.yml /secrets/policy-bot.yml
+COPY .github/fork/policy-bot.yml /secrets/policy-bot.yml
 WORKDIR /app
 COPY server/templates templates
 COPY --from=frontend /src/build/static static

@@ -2,16 +2,23 @@
 set -euo pipefail
 
 upstream="${UPSTREAM_REPOSITORY_URL:?UPSTREAM_REPOSITORY_URL is required}"
-tag="$(tr -d '[:space:]' < .github/fork/upstream-tag)"
-if [ -z "$tag" ]; then
-  echo "::error::.github/fork/upstream-tag is empty" >&2
+allowed_paths_file="${ALLOWED_PATHS_FILE:-.github/fork/allowed-paths}"
+upstream_tag_file="${UPSTREAM_TAG_FILE:-.github/fork/upstream-tag}"
+
+tag="$(tr -d '[:space:]' < "$upstream_tag_file")"
+if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "::error::${upstream_tag_file} must hold a release tag like v1.2.3, got '${tag}'" >&2
   exit 1
 fi
 
 patterns=()
-while IFS= read -r line; do
+while IFS= read -r line || [ -n "$line" ]; do
   [ -n "$line" ] && patterns+=("$line")
-done < .github/fork/allowed-paths
+done < "$allowed_paths_file"
+if [ "${#patterns[@]}" -eq 0 ]; then
+  echo "::error::${allowed_paths_file} is empty" >&2
+  exit 1
+fi
 
 allowed() {
   local path="$1" pattern
@@ -36,21 +43,21 @@ status=0
 commits=0
 while IFS= read -r commit; do
   commits=$((commits + 1))
-  while IFS= read -r path; do
+  while IFS= read -r -d '' path; do
     if ! allowed "$path"; then
-      echo "::error::commit ${commit} changes ${path}, which is not in .github/fork/allowed-paths" >&2
+      echo "::error::commit ${commit} adds, changes or deletes ${path}, which is not allowed" >&2
       status=1
     fi
-  done < <(git diff-tree --no-commit-id --name-only -r "$commit")
-done < <(git rev-list --no-merges "${base}..HEAD")
+  done < <(git diff-tree --no-renames --no-commit-id --name-only -r -z --cc --root "$commit")
+done < <(git rev-list "${base}..HEAD")
 
-while IFS= read -r path; do
+while IFS= read -r -d '' path; do
   if ! allowed "$path"; then
-    echo "::error::the tree differs from upstream ${tag} in ${path}, which is not in .github/fork/allowed-paths" >&2
+    echo "::error::the tree differs from upstream ${tag} in ${path}, which is not allowed" >&2
     status=1
   fi
-done < <(git diff --name-only "$base" HEAD)
+done < <(git diff --no-renames --name-only -z "$base" HEAD)
 
 echo "Checked ${commits} commits on top of upstream ${tag}"
-git log --oneline --no-merges "${base}..HEAD"
+git log --oneline "${base}..HEAD"
 exit "$status"

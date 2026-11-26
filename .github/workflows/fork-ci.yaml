@@ -14,17 +14,44 @@ jobs:
   history:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout
+      - name: Checkout head
         uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+          path: head
+
+      - name: Checkout base
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+          path: base
 
       - name: Check history against the upstream release
+        working-directory: head
         env:
           UPSTREAM_REPOSITORY_URL: https://github.com/palantir/policy-bot
-        run: .github/fork/check-history.sh
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          base_checker="${GITHUB_WORKSPACE}/base/.github/fork/check-history.sh"
+          base_allowed="${GITHUB_WORKSPACE}/base/.github/fork/allowed-paths"
+          if [ -f "$base_checker" ] && [ -f "$base_allowed" ]; then
+            ALLOWED_PATHS_FILE="$base_allowed" bash "$base_checker"
+            exit 0
+          fi
+          tag="$(tr -d '[:space:]' < .github/fork/upstream-tag)"
+          upstream_sha="$(git ls-remote "$UPSTREAM_REPOSITORY_URL" "refs/tags/${tag}^{}" | cut -f1)"
+          if [ -z "$upstream_sha" ]; then
+            upstream_sha="$(git ls-remote "$UPSTREAM_REPOSITORY_URL" "refs/tags/${tag}" | cut -f1)"
+          fi
+          if [ -z "$upstream_sha" ] || [ "$upstream_sha" != "$BASE_SHA" ]; then
+            echo "::error::the base has no checker and is not the upstream ${tag} commit" >&2
+            exit 1
+          fi
+          echo "::warning::the base is the unmodified upstream ${tag}, so the checker from the head is used once"
+          bash .github/fork/check-history.sh
 
   verify:
     runs-on: ubuntu-24.04
@@ -50,3 +77,21 @@ jobs:
 
       - name: Run upstream verification
         run: ./godelw verify --apply=false
+
+  fork-ci:
+    runs-on: ubuntu-24.04
+    if: ${{ always() }}
+    needs:
+      - history
+      - verify
+    steps:
+      - name: Check required job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::a required job did not succeed: ${RESULTS}" >&2
+              exit 1
+            fi
+          done
