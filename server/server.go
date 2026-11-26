@@ -108,9 +108,12 @@ func New(c *Config) (*Server, error) {
 		return nil, errors.Wrap(err, "invalid v4 API URL")
 	}
 
+	if err := c.ValidateAppKey(); err != nil {
+		return nil, err
+	}
+
 	userAgent := fmt.Sprintf("policy-bot/%s", version.GetVersion())
-	cc, err := githubapp.NewDefaultCachingClientCreator(
-		c.Github,
+	clientOpts := []githubapp.ClientOption{
 		githubapp.WithClientUserAgent(userAgent),
 		githubapp.WithClientTimeout(githubTimeout),
 		githubapp.WithClientCaching(true, func() httpcache.Cache {
@@ -124,7 +127,17 @@ func New(c *Config) (*Server, error) {
 			),
 			githubapp.ClientMetrics(base.Registry()),
 		),
-	)
+	}
+
+	if c.Signing.GCPKMSKey != "" {
+		signer, err := NewKMSSigner(context.Background(), c.Signing.GCPKMSKey)
+		if err != nil {
+			return nil, err
+		}
+		clientOpts = append(clientOpts, githubapp.WithSigner(signer))
+	}
+
+	cc, err := githubapp.NewDefaultCachingClientCreator(c.Github, clientOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize client creator")
 	}
