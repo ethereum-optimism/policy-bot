@@ -37,8 +37,8 @@ type asymmetricSigner interface {
 
 // KMSSigner signs GitHub App JWTs with RS256 using an asymmetric signing key
 // version in Google Cloud KMS. The key version must use the
-// RSA_SIGN_PKCS1_2048_SHA256, RSA_SIGN_PKCS1_3072_SHA256, or
-// RSA_SIGN_PKCS1_4096_SHA256 algorithm.
+// RSA_SIGN_PKCS1_2048_SHA256 algorithm, which matches the 2048-bit RSA private
+// keys that GitHub generates for apps.
 type KMSSigner struct {
 	client  asymmetricSigner
 	keyName string

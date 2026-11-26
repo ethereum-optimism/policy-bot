@@ -190,10 +190,12 @@ func TestValidateAppKey(t *testing.T) {
 		KMSKey     string
 		Valid      bool
 	}{
-		"privateKeyOnly": {PrivateKey: "pem", Valid: true},
-		"kmsKeyOnly":     {KMSKey: testKeyName, Valid: true},
-		"both":           {PrivateKey: "pem", KMSKey: testKeyName},
-		"neither":        {},
+		"privateKeyOnly":                {PrivateKey: "pem", Valid: true},
+		"kmsKeyOnly":                    {KMSKey: testKeyName, Valid: true},
+		"both":                          {PrivateKey: "pem", KMSKey: testKeyName},
+		"neither":                       {},
+		"whitespaceKMSKeyOnly":          {KMSKey: "  \n"},
+		"whitespacePrivateKeyAndKMSKey": {PrivateKey: " \t", KMSKey: testKeyName, Valid: true},
 	}
 
 	for name, test := range tests {
@@ -217,8 +219,17 @@ func TestParseConfigSigning(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, testKeyName, c.Signing.GCPKMSKey)
 
-	t.Setenv("POLICYBOT_SIGNING_GCP_KMS_KEY", "from-env")
+	t.Setenv("POLICYBOT_SIGNING_GCP_KMS_KEY", " from-env\n")
 	c, err = ParseConfig([]byte("{}"))
 	require.NoError(t, err)
 	assert.Equal(t, "from-env", c.Signing.GCPKMSKey)
+}
+
+func TestParseConfigSigningEmptyEnvIgnored(t *testing.T) {
+	for _, v := range []string{"", "   "} {
+		t.Setenv("POLICYBOT_SIGNING_GCP_KMS_KEY", v)
+		c, err := ParseConfig([]byte("signing:\n  gcp_kms_key: " + testKeyName + "\n"))
+		require.NoError(t, err)
+		assert.Equal(t, testKeyName, c.Signing.GCPKMSKey)
+	}
 }

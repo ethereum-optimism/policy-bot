@@ -17,6 +17,7 @@ package server
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/c2h5oh/datasize"
@@ -87,15 +88,15 @@ type SigningConfig struct {
 }
 
 func (c *SigningConfig) SetValuesFromEnv(prefix string) {
-	if v, ok := os.LookupEnv(prefix + "SIGNING_GCP_KMS_KEY"); ok {
+	if v := strings.TrimSpace(os.Getenv(prefix + "SIGNING_GCP_KMS_KEY")); v != "" {
 		c.GCPKMSKey = v
 	}
 }
 
 // ValidateAppKey checks that exactly one source of the GitHub App key is set.
 func (c *Config) ValidateAppKey() error {
-	hasPrivateKey := c.Github.App.PrivateKey != ""
-	hasKMSKey := c.Signing.GCPKMSKey != ""
+	hasPrivateKey := strings.TrimSpace(c.Github.App.PrivateKey) != ""
+	hasKMSKey := strings.TrimSpace(c.Signing.GCPKMSKey) != ""
 
 	switch {
 	case hasPrivateKey && hasKMSKey:
@@ -127,6 +128,7 @@ func ParseConfig(bytes []byte) (*Config, error) {
 	c.Logging.SetValuesFromEnv(envPrefix)
 	c.Github.SetValuesFromEnv("")
 	c.Signing.SetValuesFromEnv(envPrefix)
+	c.Signing.GCPKMSKey = strings.TrimSpace(c.Signing.GCPKMSKey)
 
 	if v, ok := os.LookupEnv(envPrefix + "SESSIONS_KEY"); ok {
 		c.Sessions.Key = v
