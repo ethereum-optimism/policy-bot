@@ -1,6 +1,10 @@
 {
   "version": 2,
   "registry": "us-docker.pkg.dev/oplabs-tools-artifacts/images",
+  "apk_registry": {
+    "host": "packages.wolfi.dev",
+    "path_prefix": "/os/"
+  },
   "release": {
     "publish_tag": "${version}"
   },
@@ -10,7 +14,8 @@
   ],
   "packages": {
     "policy-bot": {
-      "config": ".github/fork/melange.yaml"
+      "config": ".github/fork/melange.yaml",
+      "env_lockfile": ".github/fork/melange.lock.json"
     }
   },
   "images": {
@@ -20,11 +25,14 @@
           "config": ".github/fork/apko.yaml",
           "needs_packages": [
             "policy-bot"
-          ]
+          ],
+          "lockfile": ".github/fork/apko.lock.json"
         }
       },
       "paths": [
+        ".github/fork/apko.lock.json",
         ".github/fork/apko.yaml",
+        ".github/fork/melange.lock.json",
         ".github/fork/melange.yaml",
         ".github/fork/policy-bot.yml",
         "cmd/**",
@@ -45,8 +53,28 @@
         "yarn.lock"
       ],
       "smoke": {
-        "commands": [
-          "/usr/local/bin/policy-bot --help"
+        "tests": [
+          {
+            "entrypoint": "/usr/local/bin/policy-bot",
+            "args": [
+              "--help"
+            ],
+            "expected_output": "Usage:"
+          },
+          {
+            "entrypoint": "/bin/sh",
+            "args": [
+              "-c",
+              "true"
+            ],
+            "expected_exit": 127,
+            "expected_output": "no such file or directory"
+          },
+          {
+            "entrypoint": "/etc/ssl/certs/ca-certificates.crt",
+            "expected_exit": 126,
+            "expected_output": "permission denied"
+          }
         ]
       }
     }
