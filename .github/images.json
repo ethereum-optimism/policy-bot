@@ -8,16 +8,25 @@
     ".github/images.json",
     ".github/workflows/build-images.yaml"
   ],
+  "packages": {
+    "policy-bot": {
+      "config": ".github/fork/melange.yaml"
+    }
+  },
   "images": {
     "policy-bot": {
       "builders": {
-        "docker": {
-          "context": ".",
-          "dockerfile": ".github/fork/Dockerfile"
+        "apko": {
+          "config": ".github/fork/apko.yaml",
+          "needs_packages": [
+            "policy-bot"
+          ]
         }
       },
       "paths": [
-        ".github/fork/Dockerfile",
+        ".github/fork/apko.yaml",
+        ".github/fork/melange.yaml",
+        ".github/fork/policy-bot.yml",
         "cmd/**",
         "config/**",
         "docker/**",

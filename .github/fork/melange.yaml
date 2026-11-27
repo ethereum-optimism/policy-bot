@@ -1,0 +1,49 @@
+package:
+  name: policy-bot
+  version: "1.42.1"
+  epoch: 0
+  description: policy-bot GitHub App server with its templates and frontend assets
+  copyright:
+    - license: Apache-2.0
+
+environment:
+  contents:
+    keyring:
+      - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+    repositories:
+      - https://packages.wolfi.dev/os
+    packages:
+      - busybox
+      - ca-certificates-bundle
+      - go-1.27
+      - nodejs-24
+      - yarn
+  environment:
+    CGO_ENABLED: "0"
+    GOFLAGS: -mod=vendor
+    GOTOOLCHAIN: local
+
+pipeline:
+  - name: Build frontend assets
+    runs: |
+      set -euo pipefail
+      yarn install --frozen-lockfile --non-interactive
+      yarn run build:production
+
+  - name: Build policy-bot
+    runs: |
+      set -euo pipefail
+      version="${GIT_VERSION:-unspecified}"
+      mkdir -p "${{targets.contextdir}}/usr/local/bin"
+      go build -trimpath \
+        -ldflags "-s -w -X github.com/palantir/policy-bot/version.version=${version}" \
+        -o "${{targets.contextdir}}/usr/local/bin/policy-bot" .
+
+  - name: Install runtime files
+    runs: |
+      set -euo pipefail
+      install -Dm644 docker/mime.types "${{targets.contextdir}}/etc/mime.types"
+      install -Dm644 .github/fork/policy-bot.yml "${{targets.contextdir}}/secrets/policy-bot.yml"
+      mkdir -p "${{targets.contextdir}}/app"
+      cp -R server/templates "${{targets.contextdir}}/app/templates"
+      cp -R build/static "${{targets.contextdir}}/app/static"
