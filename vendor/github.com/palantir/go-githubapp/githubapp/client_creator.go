@@ -135,6 +135,7 @@ type clientCreator struct {
 	alwaysValidate bool
 	timeout        time.Duration
 	transport      http.RoundTripper
+	signer         ghinstallation.Signer
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -187,9 +188,20 @@ func WithTransport(transport http.RoundTripper) ClientOption {
 	}
 }
 
+// WithSigner sets the signer used to sign the JWTs that authenticate the app.
+// When set, the private key passed to the client creator is ignored and may be
+// empty. Use this option when the private key is held in an external system,
+// like a hardware security module or a cloud key management service, that
+// signs data without exposing the key.
+func WithSigner(signer ghinstallation.Signer) ClientOption {
+	return func(c *clientCreator) {
+		c.signer = signer
+	}
+}
+
 func (c *clientCreator) NewAppClient() (*github.Client, error) {
 	base := c.newHTTPClient()
-	installation, transportError := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
+	installation, transportError := c.newAppInstallation()
 
 	middleware := []ClientMiddleware{installation}
 	if c.cacheFunc != nil {
@@ -208,7 +220,7 @@ func (c *clientCreator) NewAppClient() (*github.Client, error) {
 
 func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 	base := c.newHTTPClient()
-	installation, transportError := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
+	installation, transportError := c.newAppInstallation()
 
 	// The v4 API primarily uses POST requests (except for introspection queries)
 	// which we cannot cache, so don't add the cache middleware
@@ -226,7 +238,7 @@ func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 
 func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
 	base := c.newHTTPClient()
-	installation, transportError := newInstallation(c.integrationID, installationID, c.privKeyBytes, c.v3BaseURL)
+	installation, transportError := c.newInstallation(installationID)
 
 	middleware := []ClientMiddleware{installation}
 	if c.cacheFunc != nil {
@@ -245,7 +257,7 @@ func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Cli
 
 func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4.Client, error) {
 	base := c.newHTTPClient()
-	installation, transportError := newInstallation(c.integrationID, installationID, c.privKeyBytes, c.v3BaseURL)
+	installation, transportError := c.newInstallation(installationID)
 
 	// The v4 API primarily uses POST requests (except for introspection queries)
 	// which we cannot cache, so don't construct the middleware
@@ -349,31 +361,39 @@ func applyMiddleware(base *http.Client, middleware [][]ClientMiddleware) {
 	}
 }
 
-func newAppInstallation(integrationID int64, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, *error) {
+func (c *clientCreator) newAppsTransport(next http.RoundTripper) (*ghinstallation.AppsTransport, error) {
+	if c.signer != nil {
+		return ghinstallation.NewAppsTransportWithOptions(next, c.integrationID, ghinstallation.WithSigner(c.signer))
+	}
+	return ghinstallation.NewAppsTransport(next, c.integrationID, c.privKeyBytes)
+}
+
+func (c *clientCreator) newAppInstallation() (ClientMiddleware, *error) {
 	var transportError error
 	installation := func(next http.RoundTripper) http.RoundTripper {
-		itr, err := ghinstallation.NewAppsTransport(next, integrationID, privKeyBytes)
+		itr, err := c.newAppsTransport(next)
 		if err != nil {
 			transportError = err
 			return next
 		}
 		// leaving the v3 URL since this is used to refresh the token, not make queries
-		itr.BaseURL = strings.TrimSuffix(v3BaseURL, "/")
+		itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
 		return itr
 	}
 	return installation, &transportError
 }
 
-func newInstallation(integrationID, installationID int64, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, *error) {
+func (c *clientCreator) newInstallation(installationID int64) (ClientMiddleware, *error) {
 	var transportError error
 	installation := func(next http.RoundTripper) http.RoundTripper {
-		itr, err := ghinstallation.New(next, integrationID, installationID, privKeyBytes)
+		atr, err := c.newAppsTransport(next)
 		if err != nil {
 			transportError = err
 			return next
 		}
+		itr := ghinstallation.NewFromAppsTransport(atr, installationID)
 		// leaving the v3 URL since this is used to refresh the token, not make queries
-		itr.BaseURL = strings.TrimSuffix(v3BaseURL, "/")
+		itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
 		return itr
 	}
 	return installation, &transportError

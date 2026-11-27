@@ -1,0 +1,10 @@
+^\.github/CODEOWNERS$
+^\.github/fork/(Dockerfile|allowed-paths|check-history\.sh|policy-bot\.yml|upstream-tag)$
+^\.github/images\.json$
+^\.github/workflows/(build-images|fork-ci)\.yaml$
+^README\.md$
+^config/policy-bot\.example\.yml$
+^go\.(mod|sum)$
+^server/(config|server)\.go$
+^server/kms_signer(_test)?\.go$
+^vendor/

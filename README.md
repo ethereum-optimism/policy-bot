@@ -1281,6 +1281,21 @@ generated values:
 - Client secret (`github.oauth.client_secret`)
 - Private key (`github.app.private_key`)
 
+Instead of configuring the private key directly, you can import it into
+[Google Cloud KMS](https://cloud.google.com/kms/docs/importing-a-key) as an
+asymmetric signing key with the `RSA_SIGN_PKCS1_2048_SHA256` algorithm and set
+`signing.gcp_kms_key` to the full resource name of the key version. The server
+then signs the app's JSON Web Tokens with Cloud KMS, using application default
+credentials, and never holds the private key. The credentials need the
+`cloudkms.cryptoKeyVersions.useToSign` permission on the key, for example
+through the `roles/cloudkms.signer` role. `github.app.private_key` must be
+empty when `signing.gcp_kms_key` is set.
+
+The container image built from `.github/fork/Dockerfile` ships a minimal
+configuration at `/secrets/policy-bot.yml` that sets no app credentials, so the
+server refuses to start with it. Mount the real configuration at that path, or
+pass another path with `--config`.
+
 ### Operations <!-- omit in toc -->
 
 `policy-bot` uses [go-baseapp](https://github.com/palantir/go-baseapp) and

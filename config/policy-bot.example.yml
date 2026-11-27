@@ -79,7 +79,8 @@ github:
     # GITHUB_APP_WEBHOOK_SECRET environment variable.
     webhook_secret: "app_secret"
     # The private key of the GitHub app. Can also be set by the
-    # GITHUB_APP_PRIVATE_KEY environment variable.
+    # GITHUB_APP_PRIVATE_KEY environment variable. Leave this empty when
+    # signing.gcp_kms_key is set.
     private_key: |
       -----BEGIN RSA PRIVATE KEY-----
       xxxxx
@@ -93,6 +94,19 @@ github:
     # The client secret of the OAuth app associated with the GitHub app. Can
     # also be set by the GITHUB_OAUTH_CLIENT_SECRET environment variable.
     client_secret: "client_secret"
+
+# Options for signing GitHub app JWTs with a key that is held in a key
+# management service instead of github.app.private_key. Exactly one of
+# github.app.private_key and signing.gcp_kms_key must be set.
+#
+# signing:
+#   # The full resource name of a Google Cloud KMS asymmetric signing key
+#   # version, using the RSA_SIGN_PKCS1_2048_SHA256 algorithm, that holds the
+#   # private key of the GitHub app. The server authenticates to Cloud KMS
+#   # with application default credentials, which need the
+#   # cloudkms.cryptoKeyVersions.useToSign permission on the key. Can also be
+#   # set by the POLICYBOT_SIGNING_GCP_KMS_KEY environment variable.
+#   gcp_kms_key: projects/<project>/locations/<location>/keyRings/<key-ring>/cryptoKeys/<key>/cryptoKeyVersions/<version>
 
 # Options for user sessions
 sessions:
